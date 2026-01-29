@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Advanced Teaching Board</title>
+
+<style>
+body{
+    margin:0;
+    font-family:Consolas, monospace;
+    background:#111;
+    color:#00ff88;
+}
+
+.toolbar{
+    background:#000;
+    padding:10px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    border-bottom:2px solid #00ff88;
+}
+
+button, select, input[type="range"]{
+    background:#000;
+    color:#00ff88;
+    border:1px solid #00ff88;
+    padding:5px 10px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#00ff88;
+    color:#000;
+}
+
+.board-container{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:calc(100vh - 60px);
+    flex-direction:column;
+}
+
+canvas{
+    background:#000;
+    border:3px solid #00ff88;
+    cursor:crosshair;
+}
+
+.pages{
+    margin-top:10px;
+    display:flex;
+    gap:10px;
+}
+.pages button{
+    padding:5px 10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="toolbar">
+    <strong>🧑‍🏫 Advanced Teaching Board</strong>
+    
+    Pen Color: <input type="color" id="color" value="#00ff88">
+    Pen Size: <input type="range" id="size" min="1" max="20" value="3">
+    <button id="eraser">Eraser</button>
+    <button id="undo">Undo</button>
+    <button id="redo">Redo</button>
+    <button id="clear">Clear Board</button>
+    <button id="save">Save as Image</button>
+    Background: 
+    <select id="bg">
+        <option value="#000000">Black</option>
+        <option value="#ffffff">White</option>
+        <option value="#111111">Dark Gray</option>
+    </select>
+</div>
+
+<div class="board-container">
+    <canvas id="canvas" width="1200" height="600"></canvas>
+    <div class="pages">
+        <button id="prevPage">⬅ Prev Page</button>
+        <span id="pageNum">Page 1</span>
+        <button id="nextPage">Next Page ➡</button>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+let drawing = false;
+let penColor = "#00ff88";
+let penSize = 3;
+let eraserMode = false;
+
+let pages = [[]]; // array of strokes per page
+let currentPage = 0;
+let undoStack = [];
+let redoStack = [];
+
+document.getElementById("color").addEventListener("change", e => penColor = e.target.value);
+document.getElementById("size").addEventListener("input", e => penSize = e.target.value);
+
+document.getElementById("eraser").addEventListener("click", ()=>{
+    eraserMode = !eraserMode;
+    document.getElementById("eraser").innerText = eraserMode ? "Pen Mode" : "Eraser";
+    penColor = eraserMode ? (document.getElementById("bg").value) : document.getElementById("color").value;
+});
+
+document.getElementById("clear").addEventListener("click", ()=>{
+    ctx.fillStyle = document.getElementById("bg").value;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    pages[currentPage] = [];
+});
+
+document.getElementById("undo").addEventListener("click", ()=>{
+    if(pages[currentPage].length>0){
+        redoStack.push(pages[currentPage].pop());
+        redraw();
+    }
+});
+
+document.getElementById("redo").addEventListener("click", ()=>{
+    if(redoStack.length>0){
+        pages[currentPage].push(redoStack.pop());
+        redraw();
+    }
+});
+
+document.getElementById("save").addEventListener("click", ()=>{
+    const link = document.createElement("a");
+    link.download = "board_page"+(currentPage+1)+".png";
+    link.href = canvas.toDataURL();
+    link.click();
+});
+
+document.getElementById("bg").addEventListener("change", ()=>{
+    redraw();
+});
+
+document.getElementById("prevPage").addEventListener("click", ()=>{
+    if(currentPage>0){
+        currentPage--;
+        document.getElementById("pageNum").innerText = "Page "+(currentPage+1);
+        redraw();
+    }
+});
+
+document.getElementById("nextPage").addEventListener("click", ()=>{
+    currentPage++;
+    if(!pages[currentPage]) pages[currentPage]=[];
+    document.getElementById("pageNum").innerText = "Page "+(currentPage+1);
+    redraw();
+});
+
+canvas.addEventListener("mousedown", e=>{
+    drawing = true;
+    ctx.beginPath();
+    ctx.moveTo(e.offsetX, e.offsetY);
+});
+
+canvas.addEventListener("mouseup", e=>{
+    drawing = false;
+    undoStack.push(pages[currentPage].slice()); // save state
+    redoStack=[];
+});
+
+canvas.addEventListener("mousemove", draw);
+
+function draw(e){
+    if(!drawing) return;
+    ctx.lineWidth = penSize;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = eraserMode ? document.getElementById("bg").value : penColor;
+    ctx.lineTo(e.offsetX, e.offsetY);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(e.offsetX, e.offsetY);
+
+    // save stroke
+    pages[currentPage].push({x:e.offsetX, y:e.offsetY, color:ctx.strokeStyle, size:ctx.lineWidth});
+}
+
+function redraw(){
+    ctx.fillStyle = document.getElementById("bg").value;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    pages[currentPage].forEach(stroke=>{
+        ctx.beginPath();
+        ctx.moveTo(stroke.x,stroke.y);
+        ctx.lineTo(stroke.x+0.1,stroke.y+0.1); // tiny dot to make visible
+        ctx.strokeStyle = stroke.color;
+        ctx.lineWidth = stroke.size;
+        ctx.stroke();
+    });
+}
+</script>
+
+</body>
+</html>
